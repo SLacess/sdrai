@@ -1,0 +1,190 @@
+openapi: 3.1.0
+info:
+  title: Sinal AI Sales OS API
+  version: 1.0.0
+  description: Internal API for the AI-first SDR MVP. All external side effects are policy-protected and idempotent.
+servers:
+  - url: https://sales-os.example.internal
+security:
+  - bearerAuth: []
+paths:
+  /api/accounts/discover:
+    post:
+      operationId: discoverAccounts
+      summary: Start account discovery job
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/DiscoverAccountsRequest'}}}}
+      responses: {'202': {description: Accepted, content: {application/json: {schema: {$ref: '#/components/schemas/JobAccepted'}}}}}
+  /api/accounts:
+    get:
+      operationId: listAccounts
+      parameters:
+        - {name: status, in: query, schema: {type: string}}
+        - {name: priority, in: query, schema: {type: string}}
+        - {name: cursor, in: query, schema: {type: string}}
+      responses: {'200': {description: OK, content: {application/json: {schema: {$ref: '#/components/schemas/AccountList'}}}}}
+  /api/accounts/{id}:
+    get:
+      operationId: getAccount
+      parameters: [{$ref: '#/components/parameters/Id'}]
+      responses: {'200': {description: OK, content: {application/json: {schema: {$ref: '#/components/schemas/Account360'}}}}, '404': {$ref: '#/components/responses/NotFound'}}
+  /api/accounts/{id}/research:
+    post:
+      operationId: researchAccount
+      parameters: [{$ref: '#/components/parameters/Id'}]
+      responses: {'202': {description: Accepted, content: {application/json: {schema: {$ref: '#/components/schemas/JobAccepted'}}}}}
+  /api/accounts/{id}/score:
+    post:
+      operationId: scoreAccount
+      parameters: [{$ref: '#/components/parameters/Id'}]
+      responses: {'200': {description: Scored, content: {application/json: {schema: {$ref: '#/components/schemas/ScoreResult'}}}}}
+  /api/contacts:
+    get:
+      operationId: listContacts
+      parameters:
+        - {name: accountId, in: query, schema: {type: string, format: uuid}}
+        - {name: state, in: query, schema: {type: string}}
+        - {name: cursor, in: query, schema: {type: string}}
+      responses: {'200': {description: OK}}
+  /api/contacts/{id}/verify:
+    post:
+      operationId: verifyContact
+      parameters: [{$ref: '#/components/parameters/Id'}]
+      responses: {'202': {description: Accepted, content: {application/json: {schema: {$ref: '#/components/schemas/JobAccepted'}}}}}
+  /api/campaigns:
+    post:
+      operationId: createCampaign
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/CreateCampaignRequest'}}}}
+      responses: {'201': {description: Created}}
+  /api/enrollments:
+    post:
+      operationId: enrollContact
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/EnrollmentRequest'}}}}
+      responses: {'201': {description: Enrolled}, '409': {description: Active enrollment conflict}}
+  /api/messages/draft:
+    post:
+      operationId: draftMessage
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/DraftMessageRequest'}}}}
+      responses: {'202': {description: Accepted}}
+  /api/approvals/{id}/decision:
+    post:
+      operationId: decideApproval
+      parameters: [{$ref: '#/components/parameters/Id'}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/ApprovalDecisionRequest'}}}}
+      responses: {'200': {description: Decision recorded}, '409': {description: Approval already decided/expired}}
+  /api/touchpoints/send:
+    post:
+      operationId: sendTouchpoint
+      parameters:
+        - {$ref: '#/components/parameters/IdempotencyKey'}
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/SendTouchpointRequest'}}}}
+      responses: {'200': {description: Sent}, '202': {description: Approval required}, '409': {description: Policy/idempotency conflict}}
+  /api/inbound:
+    post:
+      operationId: normalizedInbound
+      security: [{webhookSignature: []}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/InboundWebhook'}}}}
+      responses: {'202': {description: Accepted}, '409': {description: Duplicate event}}
+  /api/opportunities/{id}/qualify:
+    post:
+      operationId: qualifyOpportunity
+      parameters: [{$ref: '#/components/parameters/Id'}]
+      responses: {'200': {description: Qualification result}}
+  /api/meetings/brief:
+    post:
+      operationId: generateMeetingBrief
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/MeetingBriefRequest'}}}}
+      responses: {'202': {description: Accepted}}
+  /api/suppressions:
+    post:
+      operationId: createSuppression
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/SuppressionRequest'}}}}
+      responses: {'201': {description: Suppressed}}
+  /api/integrations/hubspot/webhook:
+    post:
+      operationId: hubspotWebhook
+      security: [{webhookSignature: []}]
+      responses: {'202': {description: Accepted}}
+  /api/integrations/n8n/callback:
+    post:
+      operationId: n8nCallback
+      security: [{webhookSignature: []}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/N8nCallback'}}}}
+      responses: {'202': {description: Accepted}}
+  /api/agent-runs/{id}:
+    get:
+      operationId: getAgentRun
+      parameters: [{$ref: '#/components/parameters/Id'}]
+      responses: {'200': {description: OK}, '404': {$ref: '#/components/responses/NotFound'}}
+  /api/metrics:
+    get:
+      operationId: metrics
+      responses: {'200': {description: Dashboard metrics}}
+components:
+  securitySchemes:
+    bearerAuth: {type: http, scheme: bearer, bearerFormat: JWT}
+    webhookSignature: {type: apiKey, in: header, name: X-SalesOS-Signature}
+  parameters:
+    Id: {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+    IdempotencyKey: {name: Idempotency-Key, in: header, required: true, schema: {type: string, minLength: 16, maxLength: 128}}
+  responses:
+    NotFound: {description: Not found}
+  schemas:
+    JobAccepted:
+      type: object
+      required: [jobId,status]
+      properties: {jobId: {type: string, format: uuid}, status: {const: QUEUED}, correlationId: {type: string}}
+    DiscoverAccountsRequest:
+      type: object
+      required: [campaignId,limit]
+      properties: {campaignId: {type: string, format: uuid}, limit: {type: integer, minimum: 1, maximum: 5000}, sourceKeys: {type: array, items: {type: string}}}
+    AccountSummary:
+      type: object
+      required: [id,brandName,domain,status]
+      properties: {id: {type: string, format: uuid}, brandName: {type: string}, domain: {type: string}, status: {type: string}, priorityBand: {type: [string,'null']}, score: {type: [number,'null']}}
+    AccountList:
+      type: object
+      properties: {items: {type: array, items: {$ref: '#/components/schemas/AccountSummary'}}, nextCursor: {type: [string,'null']}}
+    Account360:
+      allOf:
+        - {$ref: '#/components/schemas/AccountSummary'}
+        - {type: object, properties: {evidence: {type: array, items: {type: object}}, signals: {type: array, items: {type: object}}, contacts: {type: array, items: {type: object}}, timeline: {type: array, items: {type: object}}}}
+    ScoreResult:
+      type: object
+      required: [total,priority,factors,version]
+      properties: {total: {type: number, minimum: 0, maximum: 100}, priority: {enum: [A,B,C,BELOW_THRESHOLD]}, factors: {type: object, additionalProperties: {type: number}}, version: {type: string}}
+    CreateCampaignRequest:
+      type: object
+      required: [name,icp,offer,channels,guardrails,frequencyCaps]
+      properties: {name: {type: string}, icp: {type: object}, offer: {type: object}, channels: {type: array, items: {enum: [EMAIL,LINKEDIN,PHONE,WHATSAPP]}}, guardrails: {type: object}, frequencyCaps: {type: object}, language: {enum: [pt-BR,es,en], default: pt-BR}}
+    EnrollmentRequest:
+      type: object
+      required: [campaignId,contactId]
+      properties: {campaignId: {type: string, format: uuid}, contactId: {type: string, format: uuid}}
+    DraftMessageRequest:
+      type: object
+      required: [contactId]
+      properties: {contactId: {type: string, format: uuid}, campaignId: {type: string, format: uuid}, kind: {enum: [FIRST_TOUCH,FOLLOW_UP,REPLY]}}
+    ApprovalDecisionRequest:
+      type: object
+      required: [decision]
+      properties: {decision: {enum: [APPROVE,EDIT,REJECT]}, editedPayload: {type: object}, reason: {type: string}}
+    SendTouchpointRequest:
+      type: object
+      required: [messageDraftId,contactId,channel]
+      properties: {messageDraftId: {type: string, format: uuid}, contactId: {type: string, format: uuid}, channel: {enum: [EMAIL,LINKEDIN,PHONE,WHATSAPP]}}
+    InboundWebhook:
+      type: object
+      required: [provider,eventId,channel,address,receivedAt,rawContent]
+      properties: {provider: {type: string}, eventId: {type: string}, channel: {type: string}, address: {type: string}, receivedAt: {type: string, format: date-time}, rawContent: {type: string}, providerThreadId: {type: string}}
+    MeetingBriefRequest:
+      type: object
+      required: [meetingId]
+      properties: {meetingId: {type: string, format: uuid}, refreshResearch: {type: boolean, default: true}}
+    SuppressionRequest:
+      type: object
+      required: [scope,reason,source]
+      properties: {scope: {enum: [ADDRESS,DOMAIN,CONTACT,ACCOUNT]}, contactId: {type: string, format: uuid}, accountId: {type: string, format: uuid}, channel: {type: string}, address: {type: string}, domain: {type: string}, reason: {type: string}, source: {type: string}}
+    N8nCallback:
+      type: object
+      required: [executionId,workflowId,status,correlationId]
+      properties: {executionId: {type: string}, workflowId: {type: string}, status: {enum: [SUCCESS,PARTIAL,FAILED]}, correlationId: {type: string}, resultRefs: {type: array, items: {type: string}}, error: {type: string}}

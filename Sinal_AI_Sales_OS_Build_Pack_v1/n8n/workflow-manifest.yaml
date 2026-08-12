@@ -1,0 +1,50 @@
+version: 1
+workflows:
+  - id: WF-01
+    name: "Account Discovery"
+    trigger: "schedule/manual"
+  - id: WF-02
+    name: "Account Research"
+    trigger: "queue event"
+  - id: WF-03
+    name: "Accessibility Signal Scan"
+    trigger: "after research"
+  - id: WF-04
+    name: "Buying Committee"
+    trigger: "qualified account"
+  - id: WF-05
+    name: "Scoring"
+    trigger: "signal/contact change"
+  - id: WF-06
+    name: "Draft First Touch"
+    trigger: "lead READY_FOR_OUTREACH"
+  - id: WF-07
+    name: "Send Approved"
+    trigger: "approval approved"
+  - id: WF-08
+    name: "Sequence Scheduler"
+    trigger: "hourly"
+  - id: WF-09
+    name: "Inbound Reply"
+    trigger: "provider webhook/poll"
+  - id: WF-10
+    name: "Qualification"
+    trigger: "positive reply"
+  - id: WF-11
+    name: "Meeting Booking"
+    trigger: "SQL/meeting request"
+  - id: WF-12
+    name: "Meeting Brief"
+    trigger: "T-24h/T-2h"
+  - id: WF-13
+    name: "CRM Reconciliation"
+    trigger: "hourly/daily"
+  - id: WF-14
+    name: "Suppression"
+    trigger: "opt-out/bounce/admin"
+  - id: WF-15
+    name: "Daily Supervisor Digest"
+    trigger: "daily"
+  - id: WF-16
+    name: "Learning Loop"
+    trigger: "weekly"

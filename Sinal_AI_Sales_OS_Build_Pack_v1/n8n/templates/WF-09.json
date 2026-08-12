@@ -1,0 +1,14 @@
+{
+  "name": "WF-09 Inbound Reply",
+  "active": false,
+  "nodes": [],
+  "connections": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "buildPack": "v1",
+    "spec": "n8n/specs/WF-09-inbound-reply.md",
+    "warning": "Template intentionally contains no credentials or provider-specific nodes. Implement from spec and export versioned workflow."
+  }
+}

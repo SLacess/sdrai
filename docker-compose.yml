@@ -1,0 +1,88 @@
+# Reference staging topology for BP-045: app, worker, Postgres, Redis, n8n.
+#
+# Postgres/Redis here are containerized for a reproducible local/staging
+# stack; in EasyPanel (or any managed-Postgres/Redis provider) you can
+# instead point DATABASE_URL/REDIS_URL at the managed instances and drop
+# the `postgres`/`redis` services entirely — nothing in `web`/`worker`
+# assumes a containerized database, they only read the env vars.
+#
+# Secrets never live in this file or in git: every service reads its
+# config from `.env` (gitignored, see .env.example for the full key list).
+# In EasyPanel, set the same keys via its per-service environment UI
+# instead of an `.env` file.
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: salesos
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: salesos
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - '5432:5432'
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U salesos -d salesos']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redis_data:/data
+    ports:
+      - '6379:6379'
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - '3000:3000'
+
+  worker:
+    build:
+      context: .
+      dockerfile: apps/worker/Dockerfile
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  n8n:
+    image: n8nio/n8n:latest
+    environment:
+      N8N_HOST: ${N8N_HOST:-0.0.0.0}
+      N8N_PROTOCOL: ${N8N_PROTOCOL:-http}
+      WEBHOOK_URL: ${N8N_BASE_URL:-http://localhost:5678}
+      # Our backend's webhook signing secret for callbacks n8n sends to
+      # /api/integrations/n8n/callback — set the same value in .env's
+      # N8N_CALLBACK_SECRET so the two sides agree.
+      SALESOS_APP_BASE_URL: ${APP_BASE_URL:-http://web:3000}
+      SALESOS_CALLBACK_SECRET: ${N8N_CALLBACK_SECRET:?set N8N_CALLBACK_SECRET in .env}
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - ./n8n/workflows:/home/node/.n8n/workflows:ro
+    ports:
+      - '5678:5678'
+    depends_on:
+      - web
+
+volumes:
+  postgres_data:
+  redis_data:
+  n8n_data:

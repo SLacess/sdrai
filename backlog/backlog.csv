@@ -1,0 +1,46 @@
+﻿ticket,priority,epic,title,description,acceptance_criteria
+BP-001,P0,Foundation,Bootstrap pnpm monorepo,"Create apps/web, apps/worker and packages; strict TS, lint, test runner.",pnpm lint/typecheck/test run successfully; CI skeleton exists.
+BP-002,P0,Foundation,PostgreSQL + Prisma baseline,Apply schema.prisma and initial migration.,DB boots; migration applies/rolls back in dev; Prisma client generated.
+BP-003,P0,Foundation,Auth + RBAC,"Supervisor, closer and admin roles.",Protected routes; unauthorized Red action rejected.
+BP-004,P0,Foundation,Structured logging/correlation,Correlation IDs across API/job/n8n callbacks.,Trace a request end-to-end in logs.
+BP-005,P0,Foundation,Redis/BullMQ worker foundation,Idempotent queues and retry policy.,Job retry/backoff and DLQ test pass.
+BP-006,P0,AI,AI Gateway abstraction,Provider-neutral invoke() with model metadata/cost.,Stub + one provider adapter; timeouts/fallback covered.
+BP-007,P0,AI,Zod agent contract validation,Load AgentSchemas and reject invalid outputs.,Contract tests for all 16 schemas.
+BP-008,P0,Policy,Policy engine v1,"Implement Green/Yellow/Red, confidence, evidence, suppression, inbound/caps.",Table-driven unit tests including every blocking rule.
+BP-009,P0,Domain,State machine service,Persist append-only state events and optimistic concurrency.,Invalid transitions rejected; event created atomically.
+BP-010,P0,Accounts,Accounts CRUD + listing,Account endpoints and filters.,OpenAPI contract satisfied; pagination cursor.
+BP-011,P0,Accounts,WF-01 Account Discovery backend contract,Discovery job + dedupe/upsert.,Duplicate domain creates one account; job trace exists.
+BP-012,P0,Research,Evidence service,Create/expire/query evidence.,Expired evidence excluded from external claim check.
+BP-013,P0,Research,WF-02 Research Agent pipeline,Research refs -> agent -> evidence/signals.,Facts always bind evidence; injection fixture ignored.
+BP-014,P0,Research,WF-03 Accessibility Signal Scan,Adapter + indicator semantics.,No scan result can set compliance/legal status.
+BP-015,P0,Contacts,WF-04 Buying Committee,Upsert professional contacts/channels.,Unverified guessed channels rejected.
+BP-016,P0,Scoring,Deterministic account score,Implement weights and versioning.,Known fixture produces expected total and band.
+BP-017,P0,Campaigns,Campaign config + guardrails,"CRUD campaign, ICP, offer, caps.",Invalid caps/language rejected.
+BP-018,P0,Campaigns,Enrollment service,One active enrollment/contact and state management.,Conflict produces 409; pause/resume audited.
+BP-019,P0,Messaging,WF-06 First Touch generation,Angle + writer + supervisor + policy + Yellow approval.,No first touch can send without approved Approval.
+BP-020,P0,UI,Approval Center v1,Approve/edit/reject with evidence/risk/confidence.,Decision is auditable and cannot be repeated.
+BP-021,P0,Sending,Email provider adapter + sandbox,Protected send with idempotency.,Retry does not duplicate provider send.
+BP-022,P0,Sending,WF-07 Send Approved,Fresh policy recheck immediately before provider call.,Stale approval blocked after suppression/inbound.
+BP-023,P0,Sequences,WF-08 Scheduler,Due enrollment worker + caps.,Paused/replied contacts never send.
+BP-024,P0,Inbound,Webhook signing + replay protection,"Verify signature, timestamp and event id.",Replay returns noop/conflict; invalid signature 401.
+BP-025,P0,Inbound,WF-09 Reply handling,"Pause first, persist, classify, route.",Race test proves scheduler cannot send after inbound acceptance.
+BP-026,P0,Suppression,WF-14 opt-out/hard bounce,"Immediate local suppression, cancel sequences.",Suppressed target cannot pass Policy Engine.
+BP-027,P0,Qualification,WF-10 Qualification Agent,Structured SQL criteria + opportunity.,Fixture with missing need is not SQL; meeting request handoff works.
+BP-028,P0,HubSpot,CRM adapter + field precedence,Company/contact/deal upsert and conflict handling.,Manual authoritative field remains unchanged.
+BP-029,P0,HubSpot,WF-13 reconciliation,Incremental bidirectional reconciliation.,"Conflicts reported, retries safe."
+BP-030,P0,Meeting,Calendar free/busy adapter,Read availability and create event.,Recheck race before create; timezone validated.
+BP-031,P0,Meeting,WF-11 meeting booking,Yellow scheduling flow.,Multi-participant path requires approval.
+BP-032,P0,Meeting,WF-12 meeting brief,Brief with facts/hypotheses separation.,Every verified fact has evidence id.
+BP-033,P0,UI,Command Center,"KPIs, SQLs, meetings, approvals, failures.",Dashboard reads metrics endpoint and handles empty states.
+BP-034,P0,UI,Account 360,"Evidence, contacts, timeline, score, HubSpot link.",Evidence freshness/status visible.
+BP-035,P0,UI,Inbox AI,"Reply thread, classification, proposed action/escalation.",Red reply cannot expose auto-send action.
+BP-036,P0,Observability,Agent Activity + costs,"Run traces, latency, model, tokens, cost.",p50/p95 and failed runs visible.
+BP-037,P0,Evals,Eval harness,"Read JSONL, call/stub agent, calculate pass metrics.",Runs locally/CI with deterministic fixtures.
+BP-038,P0,Security,Prompt injection tests,Adversarial retrieved-content fixtures.,No tool/policy instruction from page is followed.
+BP-039,P0,Security,Cross-account authorization tests,Prevent data leakage between logical tenants/users.,Unauthorized entity access rejected.
+BP-040,P0,Operations,Daily supervisor digest,WF-15 metrics/approval/failure digest.,Digest generated without unnecessary PII.
+BP-041,P1,Learning,WF-16 Learning Loop,Generate change proposals only.,No production config mutated by workflow.
+BP-042,P1,Knowledge,Sales Brain CRUD/versioning,Approved/deprecated collections and validity.,Only APPROVED+valid items usable externally.
+BP-043,P1,Policies,Policies UI,Thresholds/VIP/caps/forbidden claims.,Changes versioned and audited.
+BP-044,P1,Testing,E2E canonical journey,Discover -> research -> approval -> send -> reply -> SQL -> meeting.,Passes with provider stubs and no duplicate sends.
+BP-045,P1,Deploy,Docker/EasyPanel manifests,"App, worker, Postgres/managed, Redis and n8n env boundaries.",Staging deploy reproducible; secrets outside Git.

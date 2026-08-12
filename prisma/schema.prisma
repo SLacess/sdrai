@@ -1,0 +1,774 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum AccountStatus {
+  DISCOVERED
+  RESEARCHING
+  QUALIFIED_ACCOUNT
+  NURTURE_ACCOUNT
+  DISQUALIFIED_ACCOUNT
+  SUPPRESSED
+}
+
+enum LeadState {
+  IDENTIFIED
+  VERIFIED
+  READY_FOR_OUTREACH
+  IN_SEQUENCE
+  ENGAGED
+  POSITIVE_REPLY
+  QUALIFYING
+  SQL
+  MEETING_BOOKED
+  NURTURE
+  NOT_INTERESTED
+  DO_NOT_CONTACT
+  INVALID
+}
+
+enum OpportunityStage {
+  PRE_OPPORTUNITY
+  QUALIFIED_OPPORTUNITY
+  DEMO_SCHEDULED
+  DISCOVERY_COMPLETE
+  PROPOSAL_REQUIRED
+  PROPOSAL_SENT
+  NEGOTIATION
+  WON
+  LOST
+  ON_HOLD
+}
+
+enum PriorityBand {
+  A
+  B
+  C
+  BELOW_THRESHOLD
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  EDITED
+  REJECTED
+  EXPIRED
+  CANCELLED
+}
+
+enum RiskLevel {
+  GREEN
+  YELLOW
+  RED
+}
+
+enum AgentRunStatus {
+  QUEUED
+  RUNNING
+  SUCCESS
+  PARTIAL
+  BLOCKED
+  FAILED
+  CANCELLED
+}
+
+enum Direction {
+  INBOUND
+  OUTBOUND
+  INTERNAL
+}
+
+enum ChannelType {
+  EMAIL
+  LINKEDIN
+  PHONE
+  WHATSAPP
+  CALENDAR
+  INTERNAL
+  WEB
+}
+
+enum ChannelStatus {
+  UNKNOWN
+  UNVERIFIED
+  VERIFIED
+  INVALID
+  BOUNCED
+  SUPPRESSED
+}
+
+enum EnrollmentState {
+  ACTIVE
+  PAUSED
+  COMPLETED
+  CANCELLED
+  SUPPRESSED
+}
+
+enum MessageStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  QUEUED
+  SENT
+  DELIVERED
+  OPENED
+  CLICKED
+  REPLIED
+  BOUNCED
+  FAILED
+  CANCELLED
+}
+
+enum EvidenceSourceType {
+  WEBSITE
+  PUBLIC_API
+  SEARCH_PROVIDER
+  CRM
+  INTERNAL_KNOWLEDGE
+  HUMAN
+  AUTOMATED_SCAN
+  OTHER
+}
+
+enum EntityType {
+  ACCOUNT
+  CONTACT
+  OPPORTUNITY
+  MESSAGE
+  CAMPAIGN
+  KNOWLEDGE_ITEM
+}
+
+enum ActorType {
+  SYSTEM
+  AGENT
+  USER
+  N8N
+  PROVIDER
+}
+
+enum SuppressionScope {
+  ADDRESS
+  DOMAIN
+  CONTACT
+  ACCOUNT
+}
+
+enum IntentType {
+  UNKNOWN
+  NEUTRAL
+  INTERESTED
+  POSITIVE_REPLY
+  READY_TO_BUY
+  REQUEST_INFO
+  REQUEST_DEMO
+  REQUEST_MEETING
+  OBJECTION
+  NOT_NOW
+  NOT_INTERESTED
+  OPT_OUT
+  PROCUREMENT
+  LEGAL
+  SECURITY
+  PRICING
+}
+
+enum SentimentType {
+  POSITIVE
+  NEUTRAL
+  NEGATIVE
+  MIXED
+  UNKNOWN
+}
+
+enum PolicyOutcome {
+  ALLOW
+  REQUIRE_APPROVAL
+  BLOCK
+}
+
+enum KnowledgeApprovalState {
+  DRAFT
+  APPROVED
+  DEPRECATED
+}
+
+enum KnowledgeType {
+  PRODUCT_TRUTH
+  PRICING_PACKAGING
+  ACCESSIBILITY_TRUTH
+  LEGAL_COMPLIANCE
+  CASE_LIBRARY
+  OBJECTION_LIBRARY
+  PERSONA_PLAYBOOK
+  VERTICAL_PLAYBOOK
+  VOICE_STYLE
+  PROPOSAL_COMPONENT
+}
+
+enum ScoreType {
+  ACCOUNT_PRIORITY
+  ACCESSIBILITY_OPPORTUNITY
+  CONTACT_QUALITY
+  ENGAGEMENT
+  OPPORTUNITY
+}
+
+enum UserRole {
+  ADMIN
+  SUPERVISOR
+  CLOSER
+}
+
+enum ChangeProposalType {
+  PROMPT
+  WEIGHT
+  THRESHOLD
+  PLAYBOOK
+  SEQUENCE
+}
+
+enum ChangeProposalRisk {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum ChangeProposalStatus {
+  PROPOSED
+  ACCEPTED
+  REJECTED
+}
+
+model Account {
+  id              String        @id @default(uuid()) @db.Uuid
+  legalName       String?
+  brandName       String
+  normalizedName  String
+  domain          String        @unique
+  country         String?
+  sector          String?
+  employeeBand    String?
+  revenueBand     String?
+  status          AccountStatus @default(DISCOVERED)
+  priorityBand    PriorityBand?
+  ownerUserId     String?
+  hubspotId       String?       @unique
+  isVip           Boolean       @default(false)
+  metadata        Json?
+  discoveredAt    DateTime      @default(now())
+  lastResearchedAt DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  signals         AccountSignal[]
+  evidence        Evidence[]    @relation("AccountEvidence")
+  contacts        Contact[]
+  scores          Score[]       @relation("AccountScores")
+  opportunities   Opportunity[]
+  stateEvents     LeadStateEvent[] @relation("AccountStateEvents")
+  suppressions    Suppression[] @relation("AccountSuppressions")
+  @@index([status, priorityBand])
+  @@index([country, sector])
+}
+
+model AccountSignal {
+  id          String   @id @default(uuid()) @db.Uuid
+  accountId   String   @db.Uuid
+  type        String
+  value       Json
+  sourceUrl   String?
+  observedAt  DateTime @default(now())
+  confidence  Float
+  rawExcerpt  String?
+  contentHash String?
+  expiresAt   DateTime?
+  createdAt   DateTime @default(now())
+  account     Account  @relation(fields:[accountId], references:[id], onDelete:Cascade)
+  @@index([accountId, type])
+}
+
+model Evidence {
+  id          String             @id @default(uuid()) @db.Uuid
+  entityType  EntityType
+  entityId    String
+  claim       String
+  sourceType  EvidenceSourceType
+  sourceUri   String?
+  sourceTitle String?
+  capturedAt  DateTime           @default(now())
+  confidence  Float
+  expiresAt   DateTime?
+  contentHash String?
+  rawExcerpt  String?
+  metadata    Json?
+  accountId   String?            @db.Uuid
+  account     Account?           @relation("AccountEvidence", fields:[accountId], references:[id], onDelete:SetNull)
+  messageDrafts MessageDraftEvidence[]
+  @@index([entityType, entityId])
+  @@index([expiresAt])
+}
+
+model Contact {
+  id                    String        @id @default(uuid()) @db.Uuid
+  accountId             String        @db.Uuid
+  name                   String
+  normalizedName         String
+  title                  String?
+  department             String?
+  email                  String?
+  linkedinUrl            String?
+  roleInBuyingCommittee  String?
+  confidence             Float        @default(0)
+  leadState              LeadState    @default(IDENTIFIED)
+  hubspotId              String?      @unique
+  metadata               Json?
+  createdAt              DateTime     @default(now())
+  updatedAt              DateTime     @updatedAt
+  account                Account      @relation(fields:[accountId], references:[id], onDelete:Cascade)
+  channels               ContactChannel[]
+  touchpoints            Touchpoint[]
+  inboundMessages        InboundMessage[]
+  enrollments            SequenceEnrollment[]
+  messageDrafts          MessageDraft[]
+  scores                 Score[]
+  opportunities          OpportunityContact[]
+  stateEvents            LeadStateEvent[] @relation("ContactStateEvents")
+  suppressions           Suppression[] @relation("ContactSuppressions")
+  @@index([accountId, leadState])
+  @@index([email])
+}
+
+model ContactChannel {
+  id                 String        @id @default(uuid()) @db.Uuid
+  contactId          String        @db.Uuid
+  channel            ChannelType
+  address            String
+  status             ChannelStatus @default(UNKNOWN)
+  verificationSource String?
+  verifiedAt         DateTime?
+  lastCheckedAt      DateTime?
+  metadata           Json?
+  contact            Contact       @relation(fields:[contactId], references:[id], onDelete:Cascade)
+  @@unique([channel, address])
+  @@index([contactId, channel, status])
+}
+
+model Score {
+  id             String    @id @default(uuid()) @db.Uuid
+  scoreType      ScoreType
+  total          Float
+  factorsJson    Json
+  modelVersion   String
+  calculatedAt   DateTime  @default(now())
+  accountId      String?   @db.Uuid
+  contactId      String?   @db.Uuid
+  opportunityId  String?   @db.Uuid
+  account        Account?  @relation("AccountScores", fields:[accountId], references:[id], onDelete:Cascade)
+  contact        Contact?  @relation(fields:[contactId], references:[id], onDelete:Cascade)
+  opportunity    Opportunity? @relation(fields:[opportunityId], references:[id], onDelete:Cascade)
+  @@index([scoreType, calculatedAt])
+}
+
+model Campaign {
+  id            String   @id @default(uuid()) @db.Uuid
+  name          String
+  description   String?
+  icp           Json
+  offer         Json
+  channels      ChannelType[]
+  active        Boolean  @default(false)
+  guardrails    Json
+  frequencyCaps Json
+  language      String   @default("pt-BR")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  enrollments   SequenceEnrollment[]
+  messageDrafts MessageDraft[]
+  @@index([active])
+}
+
+/// A partial unique index on (contactId) WHERE state = 'ACTIVE' enforces
+/// "one active enrollment per contact" at the DB level. Prisma's DSL can't
+/// express filtered unique indexes, so it lives only in the raw migration
+/// 20260811010000_enrollment_one_active_per_contact.
+model SequenceEnrollment {
+  id             String          @id @default(uuid()) @db.Uuid
+  campaignId     String          @db.Uuid
+  contactId      String          @db.Uuid
+  currentStep    Int             @default(0)
+  state          EnrollmentState @default(ACTIVE)
+  nextActionAt   DateTime?
+  pausedAt       DateTime?
+  pauseReason    String?
+  version        Int             @default(1)
+  startedAt      DateTime        @default(now())
+  completedAt    DateTime?
+  campaign       Campaign        @relation(fields:[campaignId], references:[id], onDelete:Cascade)
+  contact        Contact         @relation(fields:[contactId], references:[id], onDelete:Cascade)
+  @@unique([campaignId, contactId])
+  @@index([state, nextActionAt])
+}
+
+model Touchpoint {
+  id             String        @id @default(uuid()) @db.Uuid
+  contactId      String        @db.Uuid
+  channel        ChannelType
+  direction      Direction
+  type           String
+  subject        String?
+  content        String?
+  sentAt         DateTime?
+  providerId     String?       @unique
+  status         MessageStatus
+  idempotencyKey String?       @unique
+  metadata       Json?
+  createdAt      DateTime      @default(now())
+  contact        Contact       @relation(fields:[contactId], references:[id], onDelete:Cascade)
+  @@index([contactId, createdAt])
+}
+
+model MessageDraft {
+  id             String        @id @default(uuid()) @db.Uuid
+  contactId      String        @db.Uuid
+  campaignId     String?       @db.Uuid
+  angle          String?
+  subject        String?
+  body           String
+  confidence     Float
+  riskLevel      RiskLevel
+  policyState    PolicyOutcome?
+  status         MessageStatus @default(DRAFT)
+  language       String        @default("pt-BR")
+  promptVersion  String
+  modelMetadata  Json?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  contact        Contact       @relation(fields:[contactId], references:[id], onDelete:Cascade)
+  campaign       Campaign?     @relation(fields:[campaignId], references:[id], onDelete:SetNull)
+  evidence       MessageDraftEvidence[]
+  knowledge      MessageDraftKnowledge[]
+  approvals      Approval[]
+  @@index([contactId, status])
+}
+
+model MessageDraftEvidence {
+  messageDraftId String @db.Uuid
+  evidenceId     String @db.Uuid
+  messageDraft   MessageDraft @relation(fields:[messageDraftId], references:[id], onDelete:Cascade)
+  evidence       Evidence @relation(fields:[evidenceId], references:[id], onDelete:Cascade)
+  @@id([messageDraftId, evidenceId])
+}
+
+model MessageDraftKnowledge {
+  messageDraftId  String @db.Uuid
+  knowledgeItemId String @db.Uuid
+  messageDraft    MessageDraft @relation(fields:[messageDraftId], references:[id], onDelete:Cascade)
+  knowledgeItem   KnowledgeItem @relation(fields:[knowledgeItemId], references:[id], onDelete:Cascade)
+  @@id([messageDraftId, knowledgeItemId])
+}
+
+model InboundMessage {
+  id                       String        @id @default(uuid()) @db.Uuid
+  contactId                String        @db.Uuid
+  channel                  ChannelType
+  providerId               String?       @unique
+  rawContent               String
+  receivedAt               DateTime
+  intent                   IntentType    @default(UNKNOWN)
+  sentiment                SentimentType @default(UNKNOWN)
+  objection                String?
+  classificationConfidence Float?
+  requiresHuman            Boolean       @default(false)
+  metadata                 Json?
+  createdAt                DateTime      @default(now())
+  contact                  Contact       @relation(fields:[contactId], references:[id], onDelete:Cascade)
+  @@index([contactId, receivedAt])
+}
+
+model LeadStateEvent {
+  id          String     @id @default(uuid()) @db.Uuid
+  entityType  EntityType
+  entityId    String
+  fromState   String?
+  toState     String
+  reason      String
+  actorType   ActorType
+  actorId     String?
+  metadata    Json?
+  timestamp   DateTime   @default(now())
+  accountId   String?    @db.Uuid
+  contactId   String?    @db.Uuid
+  account     Account?   @relation("AccountStateEvents", fields:[accountId], references:[id], onDelete:SetNull)
+  contact     Contact?   @relation("ContactStateEvents", fields:[contactId], references:[id], onDelete:SetNull)
+  @@index([entityType, entityId, timestamp])
+}
+
+model Approval {
+  id             String         @id @default(uuid()) @db.Uuid
+  actionType     String
+  entityType     EntityType
+  entityId       String
+  payload        Json
+  riskLevel      RiskLevel
+  rationale      String
+  confidence     Float?
+  status         ApprovalStatus @default(PENDING)
+  reviewerUserId String?
+  editedPayload  Json?
+  decisionReason String?
+  decisionAt     DateTime?
+  expiresAt      DateTime?
+  createdAt      DateTime       @default(now())
+  messageDraftId String?        @db.Uuid
+  messageDraft   MessageDraft?  @relation(fields:[messageDraftId], references:[id], onDelete:SetNull)
+  @@index([status, riskLevel, createdAt])
+}
+
+model Opportunity {
+  id             String           @id @default(uuid()) @db.Uuid
+  accountId      String           @db.Uuid
+  stage          OpportunityStage @default(PRE_OPPORTUNITY)
+  need           String?
+  scope          Json?
+  timing         String?
+  budgetSignal   String?
+  score          Float?
+  arrPotentialMin Int?
+  arrPotentialMax Int?
+  currency       String           @default("BRL")
+  hubspotDealId  String?          @unique
+  nextAction     String?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  account        Account          @relation(fields:[accountId], references:[id], onDelete:Cascade)
+  contacts       OpportunityContact[]
+  meetings       Meeting[]
+  scores         Score[]
+  @@index([stage, updatedAt])
+}
+
+model OpportunityContact {
+  opportunityId String @db.Uuid
+  contactId     String @db.Uuid
+  role          String?
+  opportunity   Opportunity @relation(fields:[opportunityId], references:[id], onDelete:Cascade)
+  contact       Contact @relation(fields:[contactId], references:[id], onDelete:Cascade)
+  @@id([opportunityId, contactId])
+}
+
+model Meeting {
+  id            String   @id @default(uuid()) @db.Uuid
+  opportunityId String   @db.Uuid
+  externalId    String?  @unique
+  participants  Json
+  scheduledAt   DateTime
+  timezone      String
+  status        String
+  briefId       String?  @unique
+  notesRef      String?
+  transcriptRef String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  opportunity   Opportunity @relation(fields:[opportunityId], references:[id], onDelete:Cascade)
+  brief         MeetingBrief?
+}
+
+model MeetingBrief {
+  id          String   @id @default(uuid()) @db.Uuid
+  meetingId   String   @unique @db.Uuid
+  content     Json
+  confidence  Float?
+  generatedAt DateTime @default(now())
+  meeting     Meeting  @relation(fields:[meetingId], references:[id], onDelete:Cascade)
+}
+
+model KnowledgeItem {
+  id            String                  @id @default(uuid()) @db.Uuid
+  type          KnowledgeType
+  title         String
+  content       String
+  sourceRef     String?
+  tags          String[]
+  jurisdiction  String?
+  validFrom     DateTime?
+  validUntil    DateTime?
+  approvalState KnowledgeApprovalState  @default(DRAFT)
+  version       Int                     @default(1)
+  approvedBy    String?
+  approvedAt    DateTime?
+  createdAt     DateTime                @default(now())
+  updatedAt     DateTime                @updatedAt
+  messageDrafts MessageDraftKnowledge[]
+  @@index([type, approvalState])
+}
+
+model AgentRun {
+  id            String         @id @default(uuid()) @db.Uuid
+  parentRunId   String?        @db.Uuid
+  agent         String
+  agentVersion  String
+  entityType    EntityType?
+  entityId      String?
+  inputRefs     Json
+  outputJson    Json?
+  model         String?
+  provider      String?
+  tokensInput   Int?
+  tokensOutput  Int?
+  costMicrosUsd Int?
+  durationMs    Int?
+  confidence    Float?
+  status        AgentRunStatus @default(QUEUED)
+  errorCode     String?
+  errorMessage  String?
+  correlationId String
+  createdAt     DateTime       @default(now())
+  startedAt     DateTime?
+  completedAt   DateTime?
+  parent        AgentRun?      @relation("AgentRunTree", fields:[parentRunId], references:[id])
+  children      AgentRun[]     @relation("AgentRunTree")
+  @@index([agent, status, createdAt])
+  @@index([entityType, entityId])
+  @@index([correlationId])
+}
+
+model PolicyDecision {
+  id               String        @id @default(uuid()) @db.Uuid
+  action            String
+  entityType        EntityType
+  entityId          String
+  riskLevel         RiskLevel
+  outcome           PolicyOutcome
+  rulesTriggered    Json
+  requiredApproval  Boolean
+  reason            String
+  confidence        Float?
+  evidenceIds       String[]
+  knowledgeItemIds  String[]
+  correlationId     String
+  createdAt         DateTime      @default(now())
+  @@index([entityType, entityId, createdAt])
+  @@index([outcome, createdAt])
+}
+
+model Suppression {
+  id          String           @id @default(uuid()) @db.Uuid
+  scope       SuppressionScope
+  channel     ChannelType?
+  address     String?
+  domain      String?
+  reason      String
+  source      String
+  expiresAt   DateTime?
+  createdAt   DateTime         @default(now())
+  accountId   String?          @db.Uuid
+  contactId   String?          @db.Uuid
+  account     Account?         @relation("AccountSuppressions", fields:[accountId], references:[id], onDelete:SetNull)
+  contact     Contact?         @relation("ContactSuppressions", fields:[contactId], references:[id], onDelete:SetNull)
+  @@index([scope, address, domain])
+}
+
+model IdempotencyRecord {
+  key          String   @id
+  action       String
+  requestHash  String
+  responseJson Json?
+  status       String
+  createdAt    DateTime @default(now())
+  expiresAt    DateTime?
+  @@index([expiresAt])
+}
+
+model IntegrationEvent {
+  id            String   @id @default(uuid()) @db.Uuid
+  provider      String
+  externalId    String
+  type          String
+  payloadHash   String
+  payload       Json?
+  processedAt   DateTime?
+  status        String   @default("RECEIVED")
+  error         String?
+  receivedAt    DateTime @default(now())
+  @@unique([provider, externalId])
+  @@index([provider, type, receivedAt])
+}
+
+model User {
+  id           String    @id @default(uuid()) @db.Uuid
+  email        String    @unique
+  name         String
+  passwordHash String
+  role         UserRole
+  active       Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  lastLoginAt  DateTime?
+  @@index([email, active])
+}
+
+// WF-15: one digest per (type, forDate) — regenerating the same day's
+// digest updates the existing row instead of accumulating duplicates.
+model Digest {
+  id          String   @id @default(uuid()) @db.Uuid
+  type        String   @default("DAILY_SUPERVISOR")
+  forDate     DateTime @db.Date
+  content     Json
+  generatedAt DateTime @default(now())
+  @@unique([type, forDate])
+}
+
+// WF-16: a proposal is only ever PROPOSED/ACCEPTED/REJECTED here — nothing
+// in this codebase reads an ACCEPTED row and mutates a prompt, weight, or
+// threshold. Applying a proposal is a separate, manual, versioned change
+// (CLAUDE.md: prompt changes are versioned and eval'd before merge).
+model ChangeProposal {
+  id                  String               @id @default(uuid()) @db.Uuid
+  agentRunId          String?              @db.Uuid
+  type                ChangeProposalType
+  currentVersion      String
+  proposal            String
+  evidence            String[]
+  expectedImpact      String
+  risk                ChangeProposalRisk
+  requiresOfflineEval Boolean              @default(true)
+  status              ChangeProposalStatus @default(PROPOSED)
+  reviewerUserId      String?
+  decisionReason      String?
+  decidedAt           DateTime?
+  createdAt           DateTime             @default(now())
+  @@index([status, createdAt])
+}
+
+// BP-043: tunable operational knobs only (score thresholds, frequency caps,
+// forbidden-claim phrases) — never the hardcoded CLAUDE.md safety rules
+// (confidence<0.75 block, Red-always-human, VIP escalation). Every write
+// bumps version and appends a PolicyConfigAudit row in the same
+// transaction, so "changes versioned and audited" holds structurally.
+model PolicyConfig {
+  id              String   @id @default(uuid()) @db.Uuid
+  key             String   @unique
+  value           Json
+  version         Int      @default(1)
+  updatedByUserId String
+  updatedAt       DateTime @updatedAt
+  createdAt       DateTime @default(now())
+}
+
+model PolicyConfigAudit {
+  id              String   @id @default(uuid()) @db.Uuid
+  policyKey       String
+  previousValue   Json?
+  newValue        Json
+  version         Int
+  changedByUserId String
+  changedAt       DateTime @default(now())
+  @@index([policyKey, changedAt])
+}

@@ -1,0 +1,36 @@
+{
+  "name": "sinal-ai-sales-os",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.17.0",
+  "scripts": {
+    "lint": "turbo run lint && eslint scripts prisma/seed.ts --max-warnings=0",
+    "typecheck": "turbo run typecheck && tsc --noEmit -p tsconfig.json",
+    "test": "turbo run test",
+    "test:evals": "tsx scripts/run-evals.ts",
+    "db:generate": "prisma generate --schema prisma/schema.prisma",
+    "db:migrate": "prisma migrate dev --schema prisma/schema.prisma",
+    "db:seed": "tsx prisma/seed.ts",
+    "dev": "turbo run dev --parallel"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
+  "devDependencies": {
+    "turbo": "^2.0.0",
+    "typescript": "^5.6.3",
+    "tsx": "^4.0.0",
+    "prisma": "^6.0.0",
+    "eslint": "^9.13.0",
+    "@eslint/js": "^9.13.0",
+    "typescript-eslint": "^8.11.0",
+    "@types/node": "^22.9.0"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.0.0",
+    "zod": "^3.0.0",
+    "@sinal/ai": "workspace:*",
+    "@sinal/policies": "workspace:*",
+    "@sinal/db": "workspace:*"
+  }
+}

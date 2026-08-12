@@ -1,0 +1,22 @@
+{
+  "version": "1",
+  "source": "packages/ai/src/schemas/agents.ts",
+  "agents": [
+    "account_hunter",
+    "research_agent",
+    "accessibility_intelligence",
+    "buying_committee_mapper",
+    "scoring_agent",
+    "message_angle_agent",
+    "personalization_writer",
+    "outreach_scheduler",
+    "reply_classifier",
+    "reply_composer",
+    "qualification_agent",
+    "meeting_coordinator",
+    "meeting_prep_agent",
+    "crm_sync_agent",
+    "ai_supervisor",
+    "learning_analyst"
+  ]
+}

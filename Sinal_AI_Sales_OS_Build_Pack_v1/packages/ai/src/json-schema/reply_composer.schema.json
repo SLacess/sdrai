@@ -1,0 +1,191 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sales-os.local/schemas/reply_composer.json",
+  "title": "reply_composer",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "runId",
+    "agent",
+    "agentVersion",
+    "status",
+    "confidence",
+    "facts",
+    "inferences",
+    "recommendedActions",
+    "policyFlags",
+    "modelMetadata",
+    "createdAt",
+    "draft",
+    "escalationReason"
+  ],
+  "properties": {
+    "runId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "agent": {
+      "type": "string"
+    },
+    "agentVersion": {
+      "type": "string"
+    },
+    "entityId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "status": {
+      "enum": [
+        "success",
+        "partial",
+        "blocked"
+      ]
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "facts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "claim",
+          "evidenceId"
+        ],
+        "properties": {
+          "claim": {
+            "type": "string"
+          },
+          "evidenceId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      }
+    },
+    "inferences": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "claim",
+          "confidence"
+        ],
+        "properties": {
+          "claim": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "basisEvidenceIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        }
+      }
+    },
+    "recommendedActions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "type",
+          "rationale",
+          "risk"
+        ],
+        "properties": {
+          "type": {
+            "type": "string"
+          },
+          "rationale": {
+            "type": "string"
+          },
+          "risk": {
+            "enum": [
+              "GREEN",
+              "YELLOW",
+              "RED"
+            ]
+          }
+        }
+      }
+    },
+    "policyFlags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "modelMetadata": {
+      "type": "object"
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "draft": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "required": [
+            "body",
+            "language",
+            "actionClass",
+            "knowledgeItemIds",
+            "evidenceIds"
+          ],
+          "properties": {
+            "body": {
+              "type": "string"
+            },
+            "language": {
+              "enum": [
+                "pt-BR",
+                "es",
+                "en"
+              ]
+            },
+            "actionClass": {
+              "enum": [
+                "GREEN",
+                "YELLOW",
+                "RED"
+              ]
+            },
+            "knowledgeItemIds": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            },
+            "evidenceIds": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "escalationReason": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  }
+}
