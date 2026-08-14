@@ -109,7 +109,16 @@ describe('getAccountById', () => {
             id: 'contact-1',
             name: 'Jane Doe',
             messageDrafts: [
-              { id: 'draft-1', angle: 'accessibility-audit', subject: 'Hi', status: 'DRAFT', riskLevel: 'YELLOW', createdAt: new Date('2026-01-02T00:00:00.000Z') },
+              {
+                id: 'draft-1',
+                angle: 'accessibility-audit',
+                subject: 'Hi',
+                body: 'Original AI draft body',
+                status: 'DRAFT',
+                riskLevel: 'YELLOW',
+                createdAt: new Date('2026-01-02T00:00:00.000Z'),
+                approvals: [],
+              },
             ],
           },
         ],
@@ -152,7 +161,16 @@ describe('getAccountById', () => {
           id: 'contact-1',
           name: 'Jane Doe',
           messageDrafts: [
-            { id: 'draft-1', angle: 'accessibility-audit', subject: 'Hi', status: 'DRAFT', riskLevel: 'YELLOW', createdAt: new Date('2026-01-02T00:00:00.000Z') },
+            {
+              id: 'draft-1',
+              angle: 'accessibility-audit',
+              subject: 'Hi',
+              body: 'Original AI draft body',
+              status: 'DRAFT',
+              riskLevel: 'YELLOW',
+              createdAt: new Date('2026-01-02T00:00:00.000Z'),
+              approvals: [],
+            },
           ],
         },
       ],
@@ -172,9 +190,54 @@ describe('getAccountById', () => {
         },
       ],
       messageDrafts: [
-        { id: 'draft-1', contactId: 'contact-1', contactName: 'Jane Doe', angle: 'accessibility-audit', subject: 'Hi', status: 'DRAFT', riskLevel: 'YELLOW', createdAt: new Date('2026-01-02T00:00:00.000Z') },
+        {
+          id: 'draft-1',
+          contactId: 'contact-1',
+          contactName: 'Jane Doe',
+          angle: 'accessibility-audit',
+          subject: 'Hi',
+          status: 'DRAFT',
+          riskLevel: 'YELLOW',
+          createdAt: new Date('2026-01-02T00:00:00.000Z'),
+          body: 'Original AI draft body',
+          wasEdited: false,
+        },
       ],
     });
+  });
+
+  it("prefers the approval's editedPayload body over the original draft body when a human edited it", async () => {
+    const { prisma, account } = createMockPrisma();
+    account.findUnique.mockResolvedValue(
+      accountRow({
+        evidence: [],
+        contacts: [
+          {
+            id: 'contact-1',
+            name: 'Jane Doe',
+            messageDrafts: [
+              {
+                id: 'draft-1',
+                angle: 'accessibility-audit',
+                subject: 'Hi',
+                body: 'Original AI draft body',
+                status: 'SENT',
+                riskLevel: 'YELLOW',
+                createdAt: new Date('2026-01-02T00:00:00.000Z'),
+                approvals: [{ status: 'EDITED', editedPayload: { body: 'Human-rewritten body' } }],
+              },
+            ],
+          },
+        ],
+        opportunities: [],
+      }),
+    );
+
+    const result = await getAccountById(prisma, 'acc-1');
+
+    expect(result.messageDrafts).toEqual([
+      expect.objectContaining({ id: 'draft-1', body: 'Human-rewritten body', wasEdited: true }),
+    ]);
   });
 
   it('marks evidence with a past expiresAt as EXPIRED and evidence with a future expiresAt as FRESH', async () => {

@@ -166,6 +166,7 @@ export default async function AccountDetailPage({ params }: { params: Promise<{ 
                   <th>Contact</th>
                   <th>Angle</th>
                   <th>Subject</th>
+                  <th>Message</th>
                   <th>Status</th>
                   <th>Risk</th>
                 </tr>
@@ -176,6 +177,10 @@ export default async function AccountDetailPage({ params }: { params: Promise<{ 
                     <td>{draft.contactName}</td>
                     <td>{draft.angle ?? '—'}</td>
                     <td>{draft.subject ?? '—'}</td>
+                    <td>
+                      {draft.body}
+                      {draft.wasEdited && <span className="badge badge-neutral"> edited</span>}
+                    </td>
                     <td>
                       <span className="badge badge-neutral">{draft.status.replace(/_/g, ' ')}</span>
                     </td>

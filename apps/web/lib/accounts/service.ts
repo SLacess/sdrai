@@ -65,6 +65,14 @@ export interface MessageDraftSummaryDTO {
   status: string;
   riskLevel: string;
   createdAt: Date;
+  /**
+   * What was actually approved/sent — a human's Edit & Approve rewrite
+   * takes precedence over the AI's original draft body, so this is never
+   * "the wrong text" when the two diverge (see approval-service.ts's
+   * editedPayload, which is what processSendApproved actually sends).
+   */
+  body: string;
+  wasEdited: boolean;
 }
 
 export interface Account360DTO extends AccountSummaryDTO {
@@ -159,7 +167,14 @@ export async function getAccountById(prisma: PrismaClient, id: string): Promise<
       scores: { where: { scoreType: 'ACCOUNT_PRIORITY' }, orderBy: { calculatedAt: 'desc' }, take: 1 },
       evidence: true,
       signals: true,
-      contacts: { include: { messageDrafts: { orderBy: { createdAt: 'desc' } } } },
+      contacts: {
+        include: {
+          messageDrafts: {
+            orderBy: { createdAt: 'desc' },
+            include: { approvals: { select: { status: true, editedPayload: true } } },
+          },
+        },
+      },
       stateEvents: { orderBy: { timestamp: 'desc' } },
       opportunities: {
         orderBy: { updatedAt: 'desc' },
@@ -171,16 +186,23 @@ export async function getAccountById(prisma: PrismaClient, id: string): Promise<
 
   const now = new Date();
   const messageDrafts: MessageDraftSummaryDTO[] = account.contacts.flatMap((contact) =>
-    contact.messageDrafts.map((draft) => ({
-      id: draft.id,
-      contactId: contact.id,
-      contactName: contact.name,
-      angle: draft.angle,
-      subject: draft.subject,
-      status: draft.status,
-      riskLevel: draft.riskLevel,
-      createdAt: draft.createdAt,
-    })),
+    contact.messageDrafts.map((draft) => {
+      const editedBody = draft.approvals
+        .map((approval) => (approval.editedPayload as { body?: string } | null)?.body)
+        .find((body): body is string => typeof body === 'string');
+      return {
+        id: draft.id,
+        contactId: contact.id,
+        contactName: contact.name,
+        angle: draft.angle,
+        subject: draft.subject,
+        status: draft.status,
+        riskLevel: draft.riskLevel,
+        createdAt: draft.createdAt,
+        body: editedBody ?? draft.body,
+        wasEdited: editedBody !== undefined,
+      };
+    }),
   );
 
   const opportunities: OpportunitySummaryDTO[] = account.opportunities.map((opportunity) => ({
