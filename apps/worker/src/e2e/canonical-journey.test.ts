@@ -255,5 +255,8 @@ describe.skipIf(!process.env.DATABASE_URL)('canonical SDR journey (E2E)', () => 
 
     const contactAfterMeeting = await prisma.contact.findUniqueOrThrow({ where: { id: contactId } });
     expect(contactAfterMeeting.leadState).toBe('MEETING_BOOKED');
-  });
+    // 20s, not the 5s default: this chains 15+ real round-trips to a remote
+    // Postgres, and has flaked on the default timeout under a cold serverless
+    // connection even though each individual run completes in ~4-5s once warm.
+  }, 20000);
 });

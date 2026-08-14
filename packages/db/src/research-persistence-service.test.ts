@@ -5,7 +5,20 @@ import { persistResearchFacts } from './research-persistence-service';
 function createMockPrisma() {
   const evidence = { create: vi.fn() };
   const agentRun = { create: vi.fn() };
-  return { prisma: { evidence, agentRun } as unknown as PrismaClient, evidence, agentRun };
+  const account = { findUnique: vi.fn() };
+  const txAccount = { updateMany: vi.fn().mockResolvedValue({ count: 1 }) };
+  const leadStateEvent = { create: vi.fn() };
+  const $transaction = vi.fn(async (cb: (tx: unknown) => unknown) =>
+    cb({ account: txAccount, leadStateEvent }),
+  );
+  return {
+    prisma: { evidence, agentRun, account, $transaction } as unknown as PrismaClient,
+    evidence,
+    agentRun,
+    account,
+    txAccount,
+    leadStateEvent,
+  };
 }
 
 const ALLOCATED = [
@@ -129,5 +142,33 @@ describe('persistResearchFacts', () => {
     expect(result.persistedEvidenceIds).toEqual(['evidence-1']);
     expect(result.droppedFactCount).toBe(1);
     expect(evidence.create).toHaveBeenCalledTimes(1);
+  });
+
+  it('promotes a DISCOVERED account to RESEARCHING once a research pass persists', async () => {
+    const { prisma, agentRun, account, txAccount, leadStateEvent } = createMockPrisma();
+    agentRun.create.mockResolvedValue({ id: 'run-1' });
+    account.findUnique.mockResolvedValue({ status: 'DISCOVERED' });
+
+    await persistResearchFacts(prisma, baseParams({ facts: [] }));
+
+    expect(txAccount.updateMany).toHaveBeenCalledWith({
+      where: { id: 'acc-1', status: 'DISCOVERED' },
+      data: { status: 'RESEARCHING' },
+    });
+    expect(leadStateEvent.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ entityType: 'ACCOUNT', entityId: 'acc-1', fromState: 'DISCOVERED', toState: 'RESEARCHING' }),
+      }),
+    );
+  });
+
+  it('does not re-promote an account that already moved past DISCOVERED', async () => {
+    const { prisma, agentRun, account, txAccount } = createMockPrisma();
+    agentRun.create.mockResolvedValue({ id: 'run-1' });
+    account.findUnique.mockResolvedValue({ status: 'RESEARCHING' });
+
+    await persistResearchFacts(prisma, baseParams({ facts: [] }));
+
+    expect(txAccount.updateMany).not.toHaveBeenCalled();
   });
 });

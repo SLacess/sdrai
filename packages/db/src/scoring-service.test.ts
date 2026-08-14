@@ -5,8 +5,21 @@ import { ACCOUNT_SCORE_MODEL_VERSION, recordAccountScore } from './scoring-servi
 
 function createMockPrisma() {
   const score = { create: vi.fn() };
-  const account = { update: vi.fn() };
-  return { prisma: { score, account } as unknown as PrismaClient, score, account };
+  const account = { update: vi.fn(), findUnique: vi.fn() };
+  const policyConfig = { findUnique: vi.fn() };
+  const txAccount = { updateMany: vi.fn().mockResolvedValue({ count: 1 }) };
+  const leadStateEvent = { create: vi.fn() };
+  const $transaction = vi.fn(async (cb: (tx: unknown) => unknown) =>
+    cb({ account: txAccount, leadStateEvent }),
+  );
+  return {
+    prisma: { score, account, policyConfig, $transaction } as unknown as PrismaClient,
+    score,
+    account,
+    policyConfig,
+    txAccount,
+    leadStateEvent,
+  };
 }
 
 const FACTORS: AccountScoreFactors = {
@@ -55,5 +68,41 @@ describe('recordAccountScore', () => {
     );
     expect(score.create).not.toHaveBeenCalled();
     expect(account.update).not.toHaveBeenCalled();
+  });
+
+  it('promotes a RESEARCHING account to QUALIFIED_ACCOUNT once the score meets the SQL minimum threshold', async () => {
+    const { prisma, account, txAccount, leadStateEvent } = createMockPrisma();
+    account.findUnique.mockResolvedValue({ status: 'RESEARCHING' });
+
+    // FACTORS totals to 71.75, above the default sqlMinimumAccountScore of 70.
+    await recordAccountScore(prisma, 'acc-1', FACTORS);
+
+    expect(txAccount.updateMany).toHaveBeenCalledWith({
+      where: { id: 'acc-1', status: 'RESEARCHING' },
+      data: { status: 'QUALIFIED_ACCOUNT' },
+    });
+    expect(leadStateEvent.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ entityType: 'ACCOUNT', entityId: 'acc-1', fromState: 'RESEARCHING', toState: 'QUALIFIED_ACCOUNT' }),
+      }),
+    );
+  });
+
+  it('does not promote an account that is not currently RESEARCHING, even with a qualifying score', async () => {
+    const { prisma, account, txAccount } = createMockPrisma();
+    account.findUnique.mockResolvedValue({ status: 'DISCOVERED' });
+
+    await recordAccountScore(prisma, 'acc-1', FACTORS);
+
+    expect(txAccount.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('does not attempt promotion when the score is below the SQL minimum threshold', async () => {
+    const { prisma, account } = createMockPrisma();
+    const lowFactors: AccountScoreFactors = { ...FACTORS, companyFit: 0, digitalExposure: 0, accessibilityOpportunity: 0, inclusionEsgSignal: 0, commercialTriggerTiming: 0, buyingCommitteeQuality: 0, engagement: 0 };
+
+    await recordAccountScore(prisma, 'acc-1', lowFactors);
+
+    expect(account.findUnique).not.toHaveBeenCalled();
   });
 });
