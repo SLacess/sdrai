@@ -1,6 +1,6 @@
 import type { PrismaClient } from '@prisma/client';
 import { describe, expect, it, vi } from 'vitest';
-import { createFirstTouchDraft, type CreateFirstTouchDraftParams } from './message-draft-service';
+import { createFirstTouchDraft, createReplyDraft, type CreateMessageDraftParams } from './message-draft-service';
 
 function createMockPrisma() {
   const messageDraft = { create: vi.fn() };
@@ -18,7 +18,7 @@ function createMockPrisma() {
 
 const EVIDENCE_ID = '11111111-1111-4111-8111-111111111111';
 
-function baseParams(overrides: Partial<CreateFirstTouchDraftParams> = {}): CreateFirstTouchDraftParams {
+function baseParams(overrides: Partial<CreateMessageDraftParams> = {}): CreateMessageDraftParams {
   return {
     contactId: 'contact-1',
     angle: 'Accessibility risk',
@@ -163,5 +163,36 @@ describe('createFirstTouchDraft', () => {
     const result = await createFirstTouchDraft(prisma, baseParams({ body: 'This solution is fully certified.' }));
 
     expect(result.policyDecision.rulesTriggered).toEqual(['FORBIDDEN_CLAIM']);
+  });
+});
+
+describe('createReplyDraft', () => {
+  it('requires approval like a first touch, but tags the Approval as SEND_REPLY, not SEND_FIRST_TOUCH', async () => {
+    const { prisma, messageDraft, evidence, approval } = createMockPrisma();
+    evidence.findMany.mockResolvedValue([{ id: EVIDENCE_ID, expiresAt: null }]);
+    messageDraft.create.mockResolvedValue({ id: 'draft-1', status: 'PENDING_APPROVAL' });
+    approval.create.mockResolvedValue({ id: 'approval-1' });
+
+    const result = await createReplyDraft(prisma, baseParams({ angle: 'Reply' }));
+
+    expect(result.policyDecision.outcome).toBe('REQUIRE_APPROVAL');
+    expect(result.policyDecision.rulesTriggered).toEqual(['YELLOW_CLASS']);
+    expect(approval.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ actionType: 'SEND_REPLY', messageDraftId: 'draft-1' }) }),
+    );
+  });
+
+  it('blocks a reply containing a forbidden claim the same way a first touch would', async () => {
+    const { prisma, messageDraft, evidence, approval } = createMockPrisma();
+    messageDraft.create.mockResolvedValue({ id: 'draft-1', status: 'CANCELLED' });
+
+    const result = await createReplyDraft(
+      prisma,
+      baseParams({ angle: 'Reply', body: 'Our platform makes your site 100% accessible, guaranteed.' }),
+    );
+
+    expect(result.policyDecision.outcome).toBe('BLOCK');
+    expect(evidence.findMany).not.toHaveBeenCalled();
+    expect(approval.create).not.toHaveBeenCalled();
   });
 });

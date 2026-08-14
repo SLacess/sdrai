@@ -1,15 +1,17 @@
 import { prisma } from '@sinal/db';
 import Link from 'next/link';
+import { draftReplyAction } from './actions';
 import { describeProposedAction, listInboxThreads } from '@/lib/inbox/service';
 import { DataFetchError, EmptyState } from '@/components/DataFetchError';
 import { RiskBadge, StatusBadge } from '@/components/RiskBadge';
 
 /**
- * This page never renders a send/action control — it only links into the
- * Approval Center, which is the sole place a human decision turns into a
- * send. That makes "Red reply cannot expose auto-send" true structurally
- * for every risk tier, not just Red: there is nothing to click here that
- * sends anything.
+ * This page never renders a send control — drafting still only ever
+ * produces a PENDING_APPROVAL row (createReplyDraft is structurally
+ * incapable of sending), and the only place a human decision turns into a
+ * send is the Approval Center. That makes "Red reply cannot expose
+ * auto-send" true structurally for every risk tier, not just Red: there is
+ * nothing to click here that sends anything, only something that drafts.
  */
 export default async function InboxPage() {
   let threads: Awaited<ReturnType<typeof listInboxThreads>> | null = null;
@@ -93,7 +95,17 @@ export default async function InboxPage() {
                 const action = describeProposedAction(thread.proposedDraft);
                 switch (action.kind) {
                   case 'NO_DRAFT_YET':
-                    return <EmptyState message="No reply drafted yet. Draft one from the contact's Account 360 page." />;
+                    return (
+                      <form action={draftReplyAction}>
+                        <input type="hidden" name="inboundMessageId" value={thread.inboundMessageId} />
+                        <p className="page-subtitle" style={{ marginTop: 0 }}>
+                          No reply drafted yet.
+                        </p>
+                        <button type="submit" className="btn btn-primary">
+                          Draft reply
+                        </button>
+                      </form>
+                    );
                   case 'PENDING_HUMAN_REVIEW':
                     return (
                       <>
