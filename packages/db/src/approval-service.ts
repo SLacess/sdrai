@@ -100,5 +100,13 @@ export async function decideApproval(prisma: PrismaClient, input: DecideApproval
   }
 
   const approval = await prisma.approval.findUniqueOrThrow({ where: { id: input.approvalId } });
+
+  // A rejected message draft must not be indistinguishable from one still
+  // awaiting review — mirror the BLOCK/supervisor-reject path (see
+  // message-draft-service.ts) so every rejection path lands on CANCELLED.
+  if (input.decision === 'REJECT' && approval.messageDraftId) {
+    await prisma.messageDraft.update({ where: { id: approval.messageDraftId }, data: { status: 'CANCELLED' } });
+  }
+
   return { kind: 'DECIDED', approval };
 }

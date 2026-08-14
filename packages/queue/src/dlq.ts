@@ -14,7 +14,7 @@ export function shouldMoveToDeadLetter(attemptsMade: number, maxAttempts = MAX_A
 }
 
 export function deadLetterQueueName(sourceQueueName: string): string {
-  return `${sourceQueueName}:dlq`;
+  return `${sourceQueueName}-dlq`;
 }
 
 export async function moveToDeadLetter(dlq: Queue, job: FailedJobInfo): Promise<void> {

@@ -34,15 +34,21 @@ describe.skipIf(!process.env.DATABASE_URL)('canonical SDR journey (E2E)', () => 
   const evidenceId = randomUUID();
   const contactEmail = `jane-${randomUUID()}@e2e-fixture.example.com`;
   const createdAccountIds: string[] = [];
+  const createdApprovalIds: string[] = [];
 
   afterAll(async () => {
-    if (createdAccountIds.length === 0) return;
     // Approval has no FK to Account (entityId is a loose string) and
-    // Evidence.account uses onDelete:SetNull, so both need explicit
-    // cleanup; everything else cascades from Account.
-    await prisma.approval.deleteMany({ where: { entityType: 'MESSAGE' } });
-    await prisma.evidence.deleteMany({ where: { id: evidenceId } });
-    await prisma.account.deleteMany({ where: { id: { in: createdAccountIds } } });
+    // Evidence.account uses onDelete:SetNull, so both need explicit,
+    // id-scoped cleanup — never a blanket `where: { entityType: ... }`,
+    // which would delete every other MESSAGE/MEETING approval in the
+    // database, including real ones, whenever this test runs for real.
+    if (createdApprovalIds.length > 0) {
+      await prisma.approval.deleteMany({ where: { id: { in: createdApprovalIds } } });
+    }
+    if (createdAccountIds.length > 0) {
+      await prisma.evidence.deleteMany({ where: { id: evidenceId } });
+      await prisma.account.deleteMany({ where: { id: { in: createdAccountIds } } });
+    }
     await prisma.$disconnect();
   });
 
@@ -126,6 +132,7 @@ describe.skipIf(!process.env.DATABASE_URL)('canonical SDR journey (E2E)', () => 
     });
     expect(draftResult.policyDecision.outcome).toBe('REQUIRE_APPROVAL');
     expect(draftResult.approval).not.toBeNull();
+    createdApprovalIds.push(draftResult.approval!.id);
 
     const decision = await decideApproval(prisma, {
       approvalId: draftResult.approval!.id,
@@ -231,6 +238,7 @@ describe.skipIf(!process.env.DATABASE_URL)('canonical SDR journey (E2E)', () => 
       confidence: 0.9,
     });
     expect(meetingRequest.approval).not.toBeNull();
+    createdApprovalIds.push(meetingRequest.approval!.id);
 
     const meetingApprovalDecision = await decideApproval(prisma, {
       approvalId: meetingRequest.approval!.id,

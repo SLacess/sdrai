@@ -1,3 +1,4 @@
+import { pathToFileURL } from 'node:url';
 import { prisma } from '@sinal/db';
 import { MockLeadProvider } from '@sinal/integrations';
 import { logger } from '@sinal/observability';
@@ -24,6 +25,6 @@ function bootstrap() {
   logger.info('worker started, listening on queues: %s', QUEUE_NAMES.ACCOUNT_DISCOVERY);
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   bootstrap();
 }

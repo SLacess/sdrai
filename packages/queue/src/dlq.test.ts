@@ -13,8 +13,10 @@ describe('shouldMoveToDeadLetter', () => {
 });
 
 describe('deadLetterQueueName', () => {
-  it('suffixes the source queue name with :dlq', () => {
-    expect(deadLetterQueueName('outreach-scheduler')).toBe('outreach-scheduler:dlq');
+  it('suffixes the source queue name with -dlq', () => {
+    // BullMQ rejects `:` in queue names (reserved as its Redis key separator),
+    // so the DLQ suffix must use a different delimiter.
+    expect(deadLetterQueueName('outreach-scheduler')).toBe('outreach-scheduler-dlq');
   });
 });
 

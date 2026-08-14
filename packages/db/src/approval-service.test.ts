@@ -4,7 +4,8 @@ import { createApproval, decideApproval, listPendingApprovals } from './approval
 
 function createMockPrisma() {
   const approval = { create: vi.fn(), findUnique: vi.fn(), updateMany: vi.fn(), findUniqueOrThrow: vi.fn(), findMany: vi.fn() };
-  return { prisma: { approval } as unknown as PrismaClient, approval };
+  const messageDraft = { update: vi.fn() };
+  return { prisma: { approval, messageDraft } as unknown as PrismaClient, approval, messageDraft };
 }
 
 describe('listPendingApprovals', () => {
@@ -156,6 +157,51 @@ describe('decideApproval', () => {
     expect(approval.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ status: 'REJECTED', decisionReason: 'Not aligned with ICP' }) }),
     );
+  });
+
+  it('cancels the linked message draft when a REJECT decision lands', async () => {
+    const { prisma, approval, messageDraft } = createMockPrisma();
+    approval.findUnique.mockResolvedValueOnce(pendingApproval({ messageDraftId: 'draft-1' }));
+    approval.updateMany.mockResolvedValue({ count: 1 });
+    approval.findUniqueOrThrow.mockResolvedValue(pendingApproval({ status: 'REJECTED', messageDraftId: 'draft-1' }));
+
+    await decideApproval(prisma, {
+      approvalId: 'approval-1',
+      reviewerUserId: 'user-1',
+      decision: 'REJECT',
+    });
+
+    expect(messageDraft.update).toHaveBeenCalledWith({ where: { id: 'draft-1' }, data: { status: 'CANCELLED' } });
+  });
+
+  it('does not touch a message draft on REJECT when the approval has none (e.g. a meeting approval)', async () => {
+    const { prisma, approval, messageDraft } = createMockPrisma();
+    approval.findUnique.mockResolvedValueOnce(pendingApproval({ messageDraftId: null }));
+    approval.updateMany.mockResolvedValue({ count: 1 });
+    approval.findUniqueOrThrow.mockResolvedValue(pendingApproval({ status: 'REJECTED', messageDraftId: null }));
+
+    await decideApproval(prisma, {
+      approvalId: 'approval-1',
+      reviewerUserId: 'user-1',
+      decision: 'REJECT',
+    });
+
+    expect(messageDraft.update).not.toHaveBeenCalled();
+  });
+
+  it('does not cancel the message draft on an APPROVE decision', async () => {
+    const { prisma, approval, messageDraft } = createMockPrisma();
+    approval.findUnique.mockResolvedValueOnce(pendingApproval({ messageDraftId: 'draft-1' }));
+    approval.updateMany.mockResolvedValue({ count: 1 });
+    approval.findUniqueOrThrow.mockResolvedValue(pendingApproval({ status: 'APPROVED', messageDraftId: 'draft-1' }));
+
+    await decideApproval(prisma, {
+      approvalId: 'approval-1',
+      reviewerUserId: 'user-1',
+      decision: 'APPROVE',
+    });
+
+    expect(messageDraft.update).not.toHaveBeenCalled();
   });
 
   it('returns CONFLICT without updating when the approval was already decided', async () => {
