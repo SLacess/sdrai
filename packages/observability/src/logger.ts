@@ -2,6 +2,13 @@ import pino, { type Logger, type LoggerOptions } from 'pino';
 import { getTraceContext } from './context';
 
 const isDev = process.env.NODE_ENV !== 'production';
+// pino-pretty's transport spawns a worker_thread that requires a real file
+// path at runtime. Next.js's dev server (web) intercepts/bundles server-side
+// module resolution in a way that breaks that path, throwing an
+// uncaughtException the moment this module loads (harmless — the request
+// still completes — but noisy and worth avoiding). @sinal/worker runs plain
+// tsx with no such interception, so it keeps pretty colorized logs.
+const isNextJs = process.env.NEXT_RUNTIME !== undefined;
 
 const options: LoggerOptions = {
   level: process.env.LOG_LEVEL ?? (isDev ? 'debug' : 'info'),
@@ -16,7 +23,7 @@ const options: LoggerOptions = {
       agentRunId: trace.agentRunId,
     };
   },
-  ...(isDev ? { transport: { target: 'pino-pretty', options: { colorize: true } } } : {}),
+  ...(isDev && !isNextJs ? { transport: { target: 'pino-pretty', options: { colorize: true } } } : {}),
 };
 
 export const logger: Logger = pino(options);
